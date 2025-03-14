@@ -146,6 +146,7 @@ venv.bak/
 # mkdocs documentation
 /site
 /Notebooks/faiss_store
+/faiss_store
 
 # mypy
 .mypy_cache/
