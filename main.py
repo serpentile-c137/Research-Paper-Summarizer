@@ -69,7 +69,7 @@ def main():
             st.subheader("Summary")
             st.write(st.session_state.summary)
         
-        custom_prompt = st.text_area("Enter Custom Prompt", "Write a detailed summary of the methodology.")
+        custom_prompt = st.text_area("Enter Custom Prompt", "Read the entire paper and give summary from each section in detail")
         
         if st.button("Generate Custom Analysis"):
             with st.spinner("Processing your request..."):
