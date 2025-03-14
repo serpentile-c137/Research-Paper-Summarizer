@@ -43,7 +43,8 @@ def custom_prompt_summary(file_path, model, custom_prompt):
 
 def main():
     load_dotenv()
-    st.title("📄 Research Paper Summarizer & Custom Analysis")
+    st.set_page_config(page_title="Research Paper Summarizer", page_icon="📄")
+    st.title("Research Paper Summarizer📄")
     uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
     
     if uploaded_file:
