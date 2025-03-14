@@ -8,7 +8,55 @@ from langchain import PromptTemplate
 import google.generativeai as genai
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain.chains import RetrievalQAWithSourcesChain
+from langchain.agents import initialize_agent, Tool, AgentType
+from langchain.chat_models import ChatGooglePalm
+from langchain.chains import LLMChain
+from io import BytesIO
+import PyPDF2
 
+# Load environment variables
+load_dotenv()
+os.environ['GOOGLE_API_KEY'] = os.getenv('GOOGLE_API_KEY', 'your-key-if-not-using-env')
+
+genai.configure()
+model = "gemini-2.0-flash-lite"
+google_genai_model = ChatGoogleGenerativeAI(model=model, temperature=0.5)
+
+# Function to extract text from a PDF
+def extract_text_from_pdf(pdf_file):
+    """Extract text from a PDF file."""
+    pdf_reader = PyPDF2.PdfReader(pdf_file)
+    text = ""
+    for page in pdf_reader.pages:
+        text += page.extract_text()
+    return text
+
+# Function to generate summary using Google GenAI via LangChain
+def generate_summary(text):
+    """Generate summary using Google GenAI via LangChain."""
+    template = """
+    Please summarize the following research paper and provide a technical summary of key findings, methodologies, and conclusions:
+
+    {text}
+    """
+    prompt = PromptTemplate(input_variables=["text"], template=template)
+    llm_chain = LLMChain(prompt=prompt, llm=google_genai_model)
+    summary = llm_chain.run({"text": text})
+    return summary
+
+# Function to summarize multiple research papers
+def summarize_multiple_papers(pdf_files):
+    """Summarize multiple research papers uploaded as PDF files."""
+    full_text = ""
+    for pdf_file in pdf_files:
+        paper_text = extract_text_from_pdf(pdf_file)
+        full_text += paper_text + "\n\n"
+    
+    # Generate summary for the combined text of all papers
+    summary = generate_summary(full_text)
+    return summary
+
+# Function to summarize an individual paper
 def summarize(file_path, model):
     loader = PyPDFLoader(file_path)
     docs = loader.load_and_split()
@@ -17,6 +65,7 @@ def summarize(file_path, model):
     summary = chain.invoke(docs)
     return summary['output_text']
 
+# Custom prompt analysis function
 def custom_prompt_summary(file_path, model, custom_prompt):
     loader = PyPDFLoader(file_path)
     docs = loader.load_and_split()
@@ -41,44 +90,42 @@ def custom_prompt_summary(file_path, model, custom_prompt):
     
     return result['answer']
 
+# Streamlit App
 def main():
-    load_dotenv()
     st.set_page_config(page_title="Research Paper Summarizer", page_icon="📄")
-    st.title("Research Paper Summarizer📄")
-    uploaded_file = st.file_uploader("Upload a PDF file", type=["pdf"])
-    
-    if uploaded_file:
-        papers_dir = "papers"
-        os.makedirs(papers_dir, exist_ok=True)
-        file_path = os.path.join(papers_dir, uploaded_file.name)
+    st.title("Research Paper Summarizer 📄")
+
+    # Single file upload widget that allows multiple files
+    uploaded_files = st.file_uploader("Upload your research papers (PDF format)", type="pdf", accept_multiple_files=True)
+
+    if uploaded_files:
+        st.write(f"Processing {len(uploaded_files)} papers...")
         
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+        # Summarize the uploaded papers
+        summary = summarize_multiple_papers(uploaded_files)
         
-        model = "gemini-2.0-flash-lite"
-        
-        if "summary" not in st.session_state:
-            st.session_state.summary = ""
-        if "custom_analysis" not in st.session_state:
-            st.session_state.custom_analysis = ""
-        
-        if st.button("Summarize Paper"):
-            with st.spinner("Generating Summary..."):
-                st.session_state.summary = summarize(file_path, model)
-        
-        if st.session_state.summary:
-            st.subheader("Summary")
-            st.write(st.session_state.summary)
-        
+        st.subheader("Summary of Research Papers:")
+        st.write(summary)
+
+        # Custom analysis option
         custom_prompt = st.text_area("Enter Custom Prompt", "Read the entire paper and give summary from each section in detail.")
         
         if st.button("Generate Custom Analysis"):
             with st.spinner("Processing your request..."):
-                st.session_state.custom_analysis = custom_prompt_summary(file_path, model, custom_prompt)
+                st.session_state.custom_analysis = ""
+                for uploaded_file in uploaded_files:
+                    papers_dir = "papers"
+                    os.makedirs(papers_dir, exist_ok=True)
+                    file_path = os.path.join(papers_dir, uploaded_file.name)
+                    
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+
+                    st.session_state.custom_analysis += custom_prompt_summary(file_path, model, custom_prompt) + "\n"
         
-        if st.session_state.custom_analysis:
+        if hasattr(st.session_state, 'custom_analysis') and st.session_state.custom_analysis:
             st.subheader("Custom Analysis")
             st.write(st.session_state.custom_analysis)
-    
+
 if __name__ == "__main__":
     main()
