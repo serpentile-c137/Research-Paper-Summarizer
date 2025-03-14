@@ -22,3 +22,5 @@ GOOGLE_API_KEY=your_api_key
 ```bash
 streamlit run main.py
 ```
+
+#### Project Url : https://r-paper-summarizer.streamlit.app/
